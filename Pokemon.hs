@@ -1,37 +1,37 @@
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE DeriveAnyClass             #-}
 {-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE StandaloneKindSignatures   #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 {-# OPTIONS_GHC -Wno-unused-imports     #-}
 {-# OPTIONS_GHC -Wno-unused-top-binds   #-}
 
-{-# LANGUAGE RecordWildCards #-}
-
 module Pokemon() where
 
 import Data.Kind
 import Data.Proxy
 import GHC.TypeLits
+import System.Random
+import Data.Typeable
 import Data.Type.Equality
 
 type            IsPkmType :: Type -> Constraint
 class Show t => IsPkmType t
 
 data PkmType
-  = forall t     .  IsPkmType t                                      => Mono t                                                           
+  = forall t     .  IsPkmType t                                      => Mono t
   | forall t1 t2 . (IsPkmType t1, IsPkmType t2, (t1 == t2) ~ 'False) => Dual t1 t2
 
 instance Show PkmType where
-  show (Mono t)     = "\n[Mono type]: " <> show t                     
+  show (Mono t)     = "\n[Mono type]: " <> show t
   show (Dual t1 t2) = "\n[Dual type]: " <> show t1 <> ", " <> show t2
 
 data StatType
@@ -41,13 +41,10 @@ data StatType
   |  SpAtk
   |  SpDef
   |  Spd
+  deriving (Typeable, Show)
 
 newtype PkmStat (pkmName :: Symbol) (statType :: StatType)
       = PkmStat Int deriving newtype Show
-
-instance Bounded (PkmStat "Pikachu" 'HP) where
-  minBound = PkmStat 180
-  maxBound = PkmStat 274
 
 data Pokemon (pkmName :: Symbol)
   =  Pokemon
@@ -61,7 +58,7 @@ data Pokemon (pkmName :: Symbol)
   }
 
 instance KnownSymbol pkmName => Show (Pokemon pkmName) where
-  show Pokemon {..} = "[Name]: " <> symbolVal (Proxy @pkmName) 
+  show Pokemon {..} = "[Name]: " <> symbolVal (Proxy @pkmName)
     <> show pkmType
     <> "\n[HP]:    " <> show pkmHP
     <> "\n[Atk]:   " <> show pkmAtk
@@ -70,18 +67,64 @@ instance KnownSymbol pkmName => Show (Pokemon pkmName) where
     <> "\n[SpDef]: " <> show pkmSpDef
     <> "\n[Spd]:   " <> show pkmSpd
 
-data Fire     = Fire     deriving stock Show deriving anyclass IsPkmType 
-data Water    = Water    deriving stock Show deriving anyclass IsPkmType 
-data Electric = Electric deriving stock Show deriving anyclass IsPkmType 
+data Fire     = Fire     deriving stock Show deriving anyclass IsPkmType
+data Water    = Water    deriving stock Show deriving anyclass IsPkmType
+data Electric = Electric deriving stock Show deriving anyclass IsPkmType
 
-fstPkm :: Pokemon "Pikachu"
-fstPkm = Pokemon
-  { pkmType  = Mono Electric
-  , pkmHP    = PkmStat 200
-  , pkmAtk   = PkmStat 0
-  , pkmDef   = PkmStat 0
-  , pkmSpAtk = PkmStat 0
-  , pkmSpDef = PkmStat 0
-  , pkmSpd   = PkmStat 0
-  } 
+type  BoundedStatType :: Symbol -> Constraint
+class BoundedStatType pkmName where
+  maxMinStat :: forall (statType :: StatType) . Typeable statType => Proxy statType
+    -> (PkmStat pkmName statType, PkmStat pkmName statType)
+
+  randomStat :: forall (statType :: StatType) . Typeable statType => IO (PkmStat pkmName statType)
+  randomStat = do
+    let (PkmStat minStat, PkmStat maxStat) = maxMinStat @pkmName (Proxy @statType)
+    seed <- newStdGen
+    let (newStat, _) = randomR (minStat, maxStat) seed
+    pure (PkmStat newStat)
+
+type CheckStatType = forall (statType :: StatType) . Typeable statType => Proxy statType -> Bool
+
+isHP :: CheckStatType
+isHP = (typeRep (Proxy @'HP) ==) . typeRep
+
+isAtk :: CheckStatType
+isAtk = (typeRep (Proxy @'Atk) ==) . typeRep
+
+isDef :: CheckStatType
+isDef = (typeRep (Proxy @'Def) ==) . typeRep
+
+isSpAtk :: CheckStatType
+isSpAtk = (typeRep (Proxy @'SpAtk) ==) . typeRep
+
+isSpDef :: CheckStatType
+isSpDef = (typeRep (Proxy @'SpDef) ==) . typeRep
+
+isSpd :: CheckStatType
+isSpd = (typeRep (Proxy @'Spd) ==) . typeRep
+
+instance BoundedStatType "Pikachu" where
+  maxMinStat  proxy
+    | isHP    proxy = (PkmStat 180, PkmStat 274)
+    | isAtk   proxy = (PkmStat 103, PkmStat 229)
+    | isDef   proxy = (PkmStat  76, PkmStat 196)
+    | isSpAtk proxy = (PkmStat  94, PkmStat 218)
+    | isSpDef proxy = (PkmStat  94, PkmStat 218)
+    | isSpd   proxy = (PkmStat 166, PkmStat 306)
+    | otherwise     = error "StatType not found"
+
+wildPikachu :: IO (Pokemon "Pikachu")
+wildPikachu = do
+  pkmHP    <- randomStat @_ @'HP
+  pkmAtk   <- randomStat @_ @'Atk
+  pkmDef   <- randomStat @_ @'Def
+  pkmSpAtk <- randomStat @_ @'SpAtk
+  pkmSpDef <- randomStat @_ @'SpDef
+  pkmSpd   <- randomStat @_ @'Spd
+  pure Pokemon { pkmType  = Mono Electric, .. }
+
+main :: IO ()
+main = do
+  myFstPkm <- wildPikachu
+  print myFstPkm 
 
