@@ -5,7 +5,6 @@
 ```Haskell
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE DeriveAnyClass             #-}
 {-# LANGUAGE KindSignatures             #-}
@@ -13,6 +12,7 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE StandaloneKindSignatures   #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
@@ -46,7 +46,7 @@ data StatType
   |  SpAtk
   |  SpDef
   |  Spd
-  deriving (Typeable, Show)
+  deriving stock Show
 
 newtype PkmStat (pkmName :: Symbol) (statType :: StatType)
       = PkmStat Int deriving newtype Show
@@ -88,35 +88,19 @@ class BoundedStatType pkmName where
     let (newStat, _) = randomR (minStat, maxStat) seed
     pure (PkmStat newStat)
 
-type CheckStatType = forall (statType :: StatType) . Typeable statType => Proxy statType -> Bool
-
-isHP :: CheckStatType
-isHP = (typeRep (Proxy @'HP) ==) . typeRep
-
-isAtk :: CheckStatType
-isAtk = (typeRep (Proxy @'Atk) ==) . typeRep
-
-isDef :: CheckStatType
-isDef = (typeRep (Proxy @'Def) ==) . typeRep
-
-isSpAtk :: CheckStatType
-isSpAtk = (typeRep (Proxy @'SpAtk) ==) . typeRep
-
-isSpDef :: CheckStatType
-isSpDef = (typeRep (Proxy @'SpDef) ==) . typeRep
-
-isSpd :: CheckStatType
-isSpd = (typeRep (Proxy @'Spd) ==) . typeRep
+is :: forall (statType' :: StatType) (statType :: StatType) . 
+      (Typeable statType', Typeable statType) => Proxy statType -> Bool
+is = (typeRep (Proxy @statType') ==) . typeRep
 
 instance BoundedStatType "Pikachu" where
-  maxMinStat  proxy
-    | isHP    proxy = (PkmStat 180, PkmStat 274)
-    | isAtk   proxy = (PkmStat 103, PkmStat 229)
-    | isDef   proxy = (PkmStat  76, PkmStat 196)
-    | isSpAtk proxy = (PkmStat  94, PkmStat 218)
-    | isSpDef proxy = (PkmStat  94, PkmStat 218)
-    | isSpd   proxy = (PkmStat 166, PkmStat 306)
-    | otherwise     = error "StatType not found"
+  maxMinStat     proxy
+    | is @'HP    proxy = (PkmStat 180, PkmStat 274)
+    | is @'Atk   proxy = (PkmStat 103, PkmStat 229)
+    | is @'Def   proxy = (PkmStat  76, PkmStat 196)
+    | is @'SpAtk proxy = (PkmStat  94, PkmStat 218)
+    | is @'SpDef proxy = (PkmStat  94, PkmStat 218)
+    | is @'Spd   proxy = (PkmStat 166, PkmStat 306)
+    | otherwise        = error "StatType not found"
 
 wildPikachu :: IO (Pokemon "Pikachu")
 wildPikachu = do
@@ -131,7 +115,7 @@ wildPikachu = do
 main :: IO ()
 main = do
   myFstPkm <- wildPikachu
-  print myFstPkm 
+  print myFstPkm  
 ```
 
 <div  align="center"><img src="https://raw.githubusercontent.com/DickyDicky7/DickyDicky7/main/synthwave3.png" /></div>
