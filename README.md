@@ -31,13 +31,44 @@ import Data.Type.Equality
 type            IsPkmType :: Type -> Constraint
 class Show t => IsPkmType t
 
-data PkmType
-  = forall t     .  IsPkmType t                                      => Mono t
-  | forall t1 t2 . (IsPkmType t1, IsPkmType t2, (t1 == t2) ~ 'False) => Dual t1 t2
+data Bug      = Bug      deriving stock Show deriving anyclass IsPkmType
+data Ice      = Ice      deriving stock Show deriving anyclass IsPkmType
+data Dark     = Dark     deriving stock Show deriving anyclass IsPkmType
+data Rock     = Rock     deriving stock Show deriving anyclass IsPkmType
+data Fire     = Fire     deriving stock Show deriving anyclass IsPkmType
+data Water    = Water    deriving stock Show deriving anyclass IsPkmType
+data Grass    = Grass    deriving stock Show deriving anyclass IsPkmType
+data Fairy    = Fairy    deriving stock Show deriving anyclass IsPkmType
+data Fight    = Fight    deriving stock Show deriving anyclass IsPkmType
+data Ghost    = Ghost    deriving stock Show deriving anyclass IsPkmType
+data Steel    = Steel    deriving stock Show deriving anyclass IsPkmType
+data Dragon   = Dragon   deriving stock Show deriving anyclass IsPkmType
+data Ground   = Ground   deriving stock Show deriving anyclass IsPkmType
+data Normal   = Normal   deriving stock Show deriving anyclass IsPkmType
+data Poison   = Poison   deriving stock Show deriving anyclass IsPkmType
+data Flying   = Flying   deriving stock Show deriving anyclass IsPkmType
+data Psychic  = Psychic  deriving stock Show deriving anyclass IsPkmType
+data Electric = Electric deriving stock Show deriving anyclass IsPkmType
+
+type            IsNumOfPkmType :: Type -> Constraint
+class Show n => IsNumOfPkmType n
+
+data MonoType = forall t . IsPkmType t => JustType t
+  deriving anyclass IsNumOfPkmType
+
+instance Show MonoType where
+  show (JustType t) = "\n[Mono type]: " <> show t
+
+data DualType = forall t1 t2 . (IsPkmType t1, IsPkmType t2, (t1 == t2) ~ 'False) => BothType t1 t2
+  deriving anyclass IsNumOfPkmType
+
+instance Show DualType where
+  show (BothType t1 t2) = "\n[Dual type]: " <> show t1 <> ", " <> show t2
+
+data PkmType = forall n . IsNumOfPkmType n => Is n
 
 instance Show PkmType where
-  show (Mono t)     = "\n[Mono type]: " <> show t
-  show (Dual t1 t2) = "\n[Dual type]: " <> show t1 <> ", " <> show t2
+  show (Is n) = show n
 
 data StatType
   =  HP
@@ -71,10 +102,6 @@ instance KnownSymbol pkmName => Show (Pokemon pkmName) where
     <> "\n[SpAtk]: " <> show pkmSpAtk
     <> "\n[SpDef]: " <> show pkmSpDef
     <> "\n[Spd]:   " <> show pkmSpd
-
-data Fire     = Fire     deriving stock Show deriving anyclass IsPkmType
-data Water    = Water    deriving stock Show deriving anyclass IsPkmType
-data Electric = Electric deriving stock Show deriving anyclass IsPkmType
 
 type  BoundedStatType :: Symbol -> Constraint
 class BoundedStatType pkmName where
@@ -110,7 +137,7 @@ wildPikachu = do
   pkmSpAtk <- randomStat @_ @'SpAtk
   pkmSpDef <- randomStat @_ @'SpDef
   pkmSpd   <- randomStat @_ @'Spd
-  pure Pokemon { pkmType  = Mono Electric, .. }
+  pure Pokemon { pkmType  = Is (BothType Electric Psychic), .. }
 
 main :: IO ()
 main = do
