@@ -147,3 +147,5 @@ main = do
 
 <div  align="center"><img src="https://raw.githubusercontent.com/DickyDicky7/DickyDicky7/main/synthwave3.png" /></div>
 <div  align="center"><img src="https://raw.githubusercontent.com/DickyDicky7/DickyDicky7/main/asuka-synthwave.png" /></div>
+
+https://github.com/DickyDicky7/DickyDicky7/assets/87304213/cd7352ff-54b4-40bf-a294-e4920ae84202
